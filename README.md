@@ -2,10 +2,9 @@
 
 [**Project**](https://gandissect.csail.mit.edu/) | [**Demo**](http://gandissect.res.ibm.com/ganpaint.html?project=churchoutdoor&layer=layer4) | [**Paper**](https://arxiv.org/pdf/1811.10597.pdf) | [**Video**](http://tiny.cc/gandissect) <br>
 
-[GAN Dissection](https://gandissect.csail.mit.edu/) is a way to inspect the internal representations of a generative adversarial network (GAN) to understand how internal units align with
-human-interpretable concepts. It is part of [NetDissect](https://netdissect.csail.mit.edu/).
+[GAN Dissection](https://gandissect.csail.mit.edu/) is a way to inspect the internal representations of a generative adversarial network (GAN) to understand how internal units align with human-interpretable concepts. It is part of [NetDissect](https://netdissect.csail.mit.edu/).
 
-This repo allows you to dissect a GAN model. It provides the dissection results as a static summary or as an interactive visualization.
+This repo allows you to dissect a GAN model. It provides the dissection results as a static summary or as an interactive visualization. Try our interactive [GANPaint demo](http://gandissect.res.ibm.com/ganpaint.html?project=churchoutdoor&layer=layer4) to interact with GANs and draw images. 
 
 ## Overview
 
@@ -13,7 +12,7 @@ This repo allows you to dissect a GAN model. It provides the dissection results 
 
 [Visualizing and Understanding Generative Adversarial Networks](http://gandissect.csail.mit.edu) <br>
 [David Bau](http://people.csail.mit.eduÂ/davidbau/home/), [Jun-Yan Zhu](http://people.csail.mit.edu/junyanz/), [Hendrik Strobelt](http://hendrik.strobelt.com/), [Bolei Zhou](http://people.csail.mit.edu/bzhou/), [Joshua B. Tenenbaum](http://web.mit.edu/cocosci/josh.html), [William T. Freeman](https://billf.mit.edu/), [Antonio Torralba](http://web.mit.edu/torralba/www/) <br>
-MIT CSAIL, MIT-IBM Watson AI Lab, CUHK, Google, IBM Research <br>
+MIT CSAIL, MIT-IBM Watson AI Lab, CUHK, IBM Research <br>
 In arXiv, 2018.
 
 
@@ -52,6 +51,7 @@ and run:
 
 ```
 script/setup_env.sh      # Create a conda environment with dependencies
+script/make_dirs.sh      # Create the dataset and dissect directories
 script/download_data.sh  # Download support data and demo GANs
 source activate netd     # Enter the conda environment
 pip install -v -e .      # Link the local netdissect package into the env
@@ -200,11 +200,13 @@ optional arguments:
 It can be used from code as a function, as follows:
 
 1. Load up the convolutional model you wish to dissect, and call
-   `retain_layers(model, [layernames,..])` to instrument the model.
+   `imodel = InstrumentedModel(model)` and then
+   `imodel.retain_layers([layernames,..])` to instrument the model.
 2. Load the segmentation dataset using the BrodenDataset class;
-   use the `transform_image` argument to normalize images to be suitable for the model, and the `size` argument to truncate the dataset.
+   use the `transform_image` argument to normalize images to
+   be suitable for the model, and the `size` argument to truncate the dataset.
 3. Choose a directory in which to write the output, and call
-   `dissect(outdir, model, dataset)`.
+   `dissect(outdir, imodel, dataset)`.
 
 A quick approximate dissection can be done by reducing the `size`
 of the `BrodenDataset`.  Generating example images can be time-consuming
@@ -213,13 +215,13 @@ and the number of images can be set via `examples_per_unit`.
 Example:
 
 ```
-    from netdissect import retain_layers, dissect
+    from netdissect import InstrumentedModel, dissect
     from netdissect import BrodenDataset
 
-    model = load_my_model()
+    model = InstrumentedModel(load_my_model())
     model.eval()
     model.cuda()
-    retain_layers(model, ['conv1', 'conv2', 'conv3', 'conv4', 'conv5'])
+    model.retain_layers(['conv1', 'conv2', 'conv3', 'conv4', 'conv5'])
     bds = BrodenDataset('dataset/broden1_227',
             transform_image=transforms.Compose([
                 transforms.ToTensor(),
@@ -231,9 +233,7 @@ Example:
 ```
 
 The Broden dataset is oriented towards semantic objects, parts, material, colors, etc that are found in natural scene photographs.
-If you want to analyze your model with a different semantic segmentation,
-you can substitute a different segmentation dataset and supply a `segrunner`, an argument that describes how to get segmentations and RGB images
-from the dataset.  See `ClassifierSegRunner` for the details.
+If you want to analyze your model with a different semantic segmentation, you can substitute a different segmentation dataset and supply a `segrunner`, an argument that describes how to get segmentations and RGB images from the dataset.  See `ClassifierSegRunner` for the details.
 
 ### API, for generators
 
@@ -250,13 +250,13 @@ The time for the dissection is proportional to the number of samples
 in the dataset.
 
 ```
-    from netdissect import retain_layers, dissect
+    from netdissect import InstrumentedModel, dissect
     from netdissect import z_dataset_for_model, GeneratorSegRunner
 
-    model = load_my_model()
+    model = InstrumentedModel(load_my_model())
     model.eval()
     model.cuda()
-    retain_layers(model, ['layer3', 'layer4', 'layer5'])
+    model.retain_layers(model, ['layer3', 'layer4', 'layer5'])
     zds = z_dataset_for_model(size, model)
     dissect('result/gandissect', model, zds,
             segrunner=GeneratorSegRunner(),
@@ -264,10 +264,7 @@ in the dataset.
             examples_per_unit=10)
 ```
 
-The `GeneratorSegRunner` defaults to a running a semantic segmentation network
-oriented towards semantic objects, parts, and materials found in natural
-scene.  To use a different semantic segmentation, you can supply a
-custom `Segmenter` subclass to the constructor of `GeneratorSegRunner`.
+The `GeneratorSegRunner` defaults to a running a semantic segmentation network oriented towards semantic objects, parts, and materials found in natural scene photographs.  To use a different semantic segmentation, you can supply a custom `Segmenter` subclass to the constructor of `GeneratorSegRunner`.
 
 ## Citation
 If you use this code for your research, please cite our [paper](https://arxiv.org/pdf/1811.10597.pdf):

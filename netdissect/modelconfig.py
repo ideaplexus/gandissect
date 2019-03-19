@@ -1,7 +1,8 @@
+import numbers
 import torch
 from netdissect.autoeval import autoimport_eval
 from netdissect.progress import print_progress
-from netdissect.nethook import retain_layers, edit_layers
+from netdissect.nethook import InstrumentedModel
 from netdissect.easydict import EasyDict
 
 def create_instrumented_model(args, **kwargs):
@@ -52,8 +53,16 @@ def create_instrumented_model(args, **kwargs):
                 if isinstance(data[key], numbers.Number):
                     meta[key] = data[key]
             data = data['state_dict']
-        model.load_state_dict(data)
-    model.meta = meta
+        submodule = getattr(args, 'submodule', None)
+        if submodule is not None and len(submodule):
+            remove_prefix = submodule + '.'
+            data = { k[len(remove_prefix):]: v for k, v in data.items()
+                    if k.startswith(remove_prefix)}
+            if not len(data):
+                print_progress('No submodule %s found in %s' %
+                        (submodule, args.pthfile))
+                return None
+        model.load_state_dict(data, strict=not getattr(args, 'unstrict', False))
 
     # Decide which layers to instrument.
     if getattr(args, 'layer', None) is not None:
@@ -76,10 +85,12 @@ def create_instrumented_model(args, **kwargs):
                 ][:-1]
         print_progress('Defaulting to layers: %s' % ' '.join(args.layers))
 
+    # Now wrap the model for instrumentation.
+    model = InstrumentedModel(model)
+    model.meta = meta
+
     # Instrument the layers.
-    retain_layers(model, args.layers)
-    if getattr(args, 'edit', False):
-        edit_layers(model, args.layers)
+    model.retain_layers(args.layers)
     model.eval()
     if args.cuda:
         model.cuda()
@@ -117,7 +128,7 @@ def annotate_model_shapes(model, gen=False, imgsize=None):
 
     # Annotate shapes.
     model.input_shape = input_shape
-    model.feature_shape = { layer: model.retained[layer].shape
-            for layer in model.retained }
+    model.feature_shape = { layer: feature.shape
+            for layer, feature in model.retained_features().items() }
     model.output_shape = output.shape
     return model

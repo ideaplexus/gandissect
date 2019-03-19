@@ -1,18 +1,26 @@
 #!/usr/bin/env bash
 # Another way to download the dataset.
 
-set -e
-
 # Start from parent directory of script
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
+set -e
+
+# Within MIT the dataset exists here
+LOCALDATA="/data/vision/torralba/datasets/broden"
+
+if [ -f "${LOCALDATA}/broden1_224/index.csv" ] && [ ! -e dataset/broden ]
+then
+ln -s "${LOCALDATA}" -T dataset/broden
+fi
+
 # Download broden1_224
-if [ ! -f dataset/broden1_224/index.csv ]
+if [ ! -f dataset/broden/broden1_224/index.csv ]
 then
 
 echo "Downloading broden1_224"
-mkdir -p dataset
-pushd dataset
+mkdir -p dataset/broden
+pushd dataset/broden
 wget --progress=bar \
    http://netdissect.csail.mit.edu/data/broden1_224.zip \
    -O broden1_224.zip
@@ -23,12 +31,12 @@ popd
 fi
 
 # Download broden1_227
-if [ ! -f dataset/broden1_227/index.csv ]
+if [ ! -f dataset/broden/broden1_227/index.csv ]
 then
 
 echo "Downloading broden1_227"
-mkdir -p dataset
-pushd dataset
+mkdir -p dataset/broden
+pushd dataset/broden
 wget --progress=bar \
    http://netdissect.csail.mit.edu/data/broden1_227.zip \
    -O broden1_227.zip
@@ -39,12 +47,12 @@ popd
 fi
 
 # Download broden1_384
-if [ ! -f dataset/broden1_384/index.csv ]
+if [ ! -f dataset/broden/broden1_384/index.csv ]
 then
 
 echo "Downloading broden1_384"
-mkdir -p dataset
-pushd dataset
+mkdir -p dataset/broden
+pushd dataset/broden
 wget --progress=bar \
    http://netdissect.csail.mit.edu/data/broden1_384.zip \
    -O broden1_384.zip
